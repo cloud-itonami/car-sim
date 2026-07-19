@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Car Sim — kami-vehicle soft-body demo</title>
+<style>
+  html, body { margin:0; height:100%; background:#0a0c12; color:#cde; font-family:system-ui, -apple-system, sans-serif; overflow:hidden; }
+  #gc { display:block; width:100vw; height:100vh; cursor:grab; }
+  #gc:active { cursor:grabbing; }
+  .panel {
+    position:fixed; padding:10px 14px;
+    background:rgba(0,0,0,0.55); border-radius:10px;
+    backdrop-filter: blur(6px);
+    pointer-events:none;
+  }
+  #title { top:10px; left:10px; }
+  #title h1 { margin:0; font-size:14px; font-weight:600; color:#9ee599; letter-spacing:0.5px; }
+  #title p  { margin:3px 0 0; font-size:11px; color:#7c89a0; }
+  #hud {
+    top:10px; right:10px; min-width:240px;
+    font:11px/1.55 ui-monospace, monospace; color:#cce;
+  }
+  #hud .row { display:flex; justify-content:space-between; gap:14px; }
+  #hud .k { color:#7d8da3; }
+  #hud .v { color:#fff; font-weight:500; }
+  #hud .v.green { color:#9ee599; }
+  #hud .v.red   { color:#ff8a72; }
+  #hint {
+    bottom:10px; left:10px; font:11px/1.55 ui-monospace, monospace; color:#a4b5c8;
+  }
+  #hint kbd {
+    display:inline-block; padding:1px 6px; margin:0 2px;
+    background:#222a35; border-radius:4px; border:1px solid #34404e;
+    color:#cde; font-size:10px; font-family:inherit;
+  }
+  #gauge { bottom:10px; right:10px; width:240px; }
+  #gauge .bar { display:flex; align-items:center; gap:6px; margin:2px 0; font:10px ui-monospace, monospace; }
+  #gauge .bar span:first-child { width:60px; color:#7d8da3; }
+  #gauge .bar .track { flex:1; height:6px; background:#1a2230; border-radius:3px; overflow:hidden; }
+  #gauge .bar .fill  { height:100%; background:#9ee599; border-radius:3px; transition:width .08s; }
+  #gauge .bar .fill.red { background:#ff8a72; }
+  #gauge .bar .fill.steer { background:#6ec1ff; transform-origin:50%; }
+</style>
+</head>
+<body>
+<canvas id="gc"></canvas>
+
+<div class="panel" id="title">
+  <h1>car-sim — kami-vehicle</h1>
+  <p>BeamNG-grade soft-body sedan · ~220 beams · Pacejka tire · 2 kHz substep</p>
+</div>
+
+<div class="panel" id="hud">
+  <div class="row"><span class="k">backend</span><span class="v" id="h-backend">—</span></div>
+  <div class="row"><span class="k">fps</span><span class="v" id="h-fps">—</span></div>
+  <div class="row"><span class="k">speed</span><span class="v" id="h-speed">— km/h</span></div>
+  <div class="row"><span class="k">rpm</span><span class="v" id="h-rpm">—</span></div>
+  <div class="row"><span class="k">gear</span><span class="v" id="h-gear">N</span></div>
+  <div class="row"><span class="k">grounded wheels</span><span class="v" id="h-grounded">0/4</span></div>
+  <div class="row"><span class="k">broken beams</span><span class="v" id="h-broken">0</span></div>
+  <div class="row"><span class="k">nodes / beams</span><span class="v" id="h-counts">— / —</span></div>
+</div>
+
+<div class="panel" id="gauge">
+  <div class="bar"><span>throttle</span><div class="track"><div class="fill" id="g-th" style="width:0%"></div></div></div>
+  <div class="bar"><span>brake</span><div class="track"><div class="fill red" id="g-br" style="width:0%"></div></div></div>
+  <div class="bar"><span>steer</span><div class="track"><div class="fill steer" id="g-st" style="width:0%; margin-left:50%"></div></div></div>
+</div>
+
+<div class="panel" id="hint">
+  <kbd>W</kbd> throttle · <kbd>S</kbd> brake · <kbd>A</kbd>/<kbd>D</kbd> steer · <kbd>Space</kbd> handbrake · <kbd>R</kbd> reverse · <kbd>1-6</kbd> gear · drag canvas to orbit · scroll to zoom
+</div>
+
+<div style="position:fixed; top:10px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:center; padding:6px 12px; border-radius:8px; border:1px solid #34404e; background:rgba(26,34,48,0.9); color:#cde; font:11px ui-monospace, monospace; backdrop-filter:blur(6px);">
+  <button id="audio-toggle" style="border:1px solid #34404e; background:#1a2230; color:#cde; padding:4px 10px; border-radius:6px; cursor:pointer; font:inherit;">🔊 audio</button>
+  <span style="color:#7d8da3;">|</span>
+  <label>☀ time</label>
+  <input type="range" id="tod-slider" min="0" max="1" step="0.001" value="0.35" style="width:120px;">
+  <span id="tod-readout" style="min-width:40px; color:#9ee599;">08:24</span>
+  <span style="color:#7d8da3;">|</span>
+  <select id="weather-select" style="background:#1a2230; color:#cde; border:1px solid #34404e; padding:3px 6px; border-radius:6px; font:inherit;">
+    <option value="clear">clear</option>
+    <option value="overcast">overcast</option>
+  </select>
+</div>
+<script src="./kami-engine-audio.js"></script>
+<script>
+(function () {
+  // Time-of-day + weather → kami-atmosphere driven IBL.
+  window.__carsim_time_of_day = 0.35;
+  window.__carsim_weather = 'clear';
+  const tod = document.getElementById('tod-slider');
+  const todReadout = document.getElementById('tod-readout');
+  const weather = document.getElementById('weather-select');
+  function fmtClock(t) {
+    const total = (t * 24 * 60) | 0;
+    const h = ((total / 60) | 0).toString().padStart(2, '0');
+    const m = (total % 60).toString().padStart(2, '0');
+    return `${h}:${m}`;
+  }
+  tod.addEventListener('input', () => {
+    const t = parseFloat(tod.value);
+    window.__carsim_time_of_day = t;
+    todReadout.textContent = fmtClock(t);
+  });
+  weather.addEventListener('change', () => {
+    window.__carsim_weather = weather.value;
+  });
+  todReadout.textContent = fmtClock(parseFloat(tod.value));
+})();
+(function () {
+  const btn = document.getElementById('audio-toggle');
+  let on = false;
+  btn.addEventListener('click', async () => {
+    if (!on) {
+      await KamiEngineAudio.init();
+      KamiEngineAudio.start();
+      btn.textContent = '🔇 disable engine audio';
+      on = true;
+    } else {
+      KamiEngineAudio.stop();
+      btn.textContent = '🔊 enable engine audio';
+      on = false;
+    }
+  });
+
+  // Simple impact-hook — listens to broken-beam delta and fires an
+  // impulse. Throttled to avoid machine-gun sound when many beams pop.
+  let lastBroken = 0;
+  let lastImpactTs = 0;
+  setInterval(() => {
+    const h = window.__carsim_hud || {};
+    const broken = h.broken_beams ?? 0;
+    const delta = broken - lastBroken;
+    if (delta > 0 && on) {
+      const now = performance.now();
+      if (now - lastImpactTs > 80) {
+        KamiEngineAudio.impact(Math.min(1, delta / 6));
+        lastImpactTs = now;
+      }
+    }
+    lastBroken = broken;
+  }, 50);
+})();
+</script>
+
+<script type="module">
+import init, { run_car_sim } from './kami_app_car_sim.js';
+
+// Driver state, polled by the WASM each tick.
+window.__carsim_throttle  = 0.0;
+window.__carsim_brake     = 0.0;
+window.__carsim_handbrake = 0.0;
+window.__carsim_steer     = 0.0;
+window.__carsim_gear      = 1; // 1st gear at start
+
+const STEER_RATE = 4.0;  // 1/s — full lock in 0.25s
+const STEER_RETURN = 6.0;
+let keys = new Set();
+
+function keyDown(e) {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+  keys.add(k);
+  if (k === 'r') window.__carsim_gear = -1;
+  if (k >= '1' && k <= '6') window.__carsim_gear = parseInt(k, 10);
+  if (k === '0' || k === 'n') window.__carsim_gear = 0;
+}
+function keyUp(e) { keys.delete(e.key.toLowerCase()); }
+window.addEventListener('keydown', keyDown);
+window.addEventListener('keyup', keyUp);
+window.addEventListener('blur', () => keys.clear());
+
+let last = performance.now();
+function pollControls() {
+  const now = performance.now();
+  const dt = Math.min((now - last) / 1000, 0.1);
+  last = now;
+
+  window.__carsim_throttle  = keys.has('w') || keys.has('arrowup')   ? 1.0 : 0.0;
+  window.__carsim_brake     = keys.has('s') || keys.has('arrowdown') ? 1.0 : 0.0;
+  window.__carsim_handbrake = keys.has(' ')                          ? 1.0 : 0.0;
+
+  let target = 0;
+  if (keys.has('a') || keys.has('arrowleft'))  target -= 1;
+  if (keys.has('d') || keys.has('arrowright')) target += 1;
+  let s = window.__carsim_steer;
+  if (target !== 0) {
+    s += target * STEER_RATE * dt;
+  } else if (s !== 0) {
+    const sign = Math.sign(s);
+    s -= sign * STEER_RETURN * dt;
+    if (Math.sign(s) !== sign) s = 0;
+  }
+  window.__carsim_steer = Math.max(-1, Math.min(1, s));
+
+  // HUD update.
+  const h = window.__carsim_hud;
+  if (h) {
+    document.getElementById('h-fps').textContent     = (h.fps ?? 0).toFixed(0);
+    document.getElementById('h-speed').textContent   = (h.speed_kmh ?? 0).toFixed(1) + ' km/h';
+    document.getElementById('h-rpm').textContent     = (h.rpm ?? 0).toFixed(0);
+    const g = h.gear ?? 0;
+    document.getElementById('h-gear').textContent    = g === 0 ? 'N' : (g === -1 ? 'R' : String(g));
+    document.getElementById('h-grounded').textContent = `${h.grounded_wheels ?? 0}/4`;
+    const broken = h.broken_beams ?? 0;
+    const $br = document.getElementById('h-broken');
+    $br.textContent = String(broken);
+    $br.className = 'v ' + (broken > 0 ? 'red' : 'green');
+    document.getElementById('h-counts').textContent  = `${h.nodes ?? 0} / ${h.beams ?? 0}`;
+  }
+  const $th = document.getElementById('g-th');
+  const $br = document.getElementById('g-br');
+  const $st = document.getElementById('g-st');
+  $th.style.width = (window.__carsim_throttle * 100).toFixed(0) + '%';
+  $br.style.width = (window.__carsim_brake    * 100).toFixed(0) + '%';
+  // Steer gauge: bar centred at 50%, half-width up to 50%.
+  const steer = window.__carsim_steer;
+  const w = Math.abs(steer) * 50;
+  const left = steer >= 0 ? 50 : 50 - w;
+  $st.style.marginLeft = left + '%';
+  $st.style.width = w + '%';
+
+  requestAnimationFrame(pollControls);
+}
+
+(async () => {
+  await init('./kami_app_car_sim_bg.wasm');
+  const fpsTimer = setInterval(() => {
+    const h = window.__kami_hud_car_sim ?? window.__carsim_hud ?? {};
+    if (h.backend) document.getElementById('h-backend').textContent = h.backend;
+  }, 250);
+  requestAnimationFrame(pollControls);
+  await run_car_sim('gc');
+})();
+</script>
+</body>
+</html>

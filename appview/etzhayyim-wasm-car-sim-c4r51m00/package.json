@@ -1,0 +1,6 @@
+{
+  "name": "etzhayyim-wasm-car-sim-c4r51m00",
+  "private": true,
+  "version": "1.0.0",
+  "main": "src/app.ts"
+}

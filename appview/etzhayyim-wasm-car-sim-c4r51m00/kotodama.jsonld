@@ -1,0 +1,49 @@
+{
+  "@context": "https://etzhayyim.com/ns/kotodama/v1",
+  "@id": "did:web:driver.etzhayyim.com",
+  "accent": "#22c55e",
+  "name": "car-sim",
+  "nanoid": "c4r51m00",
+  "performerType": "service",
+  "description": "kami-vehicle BeamNG-grade soft-body car simulator demo (~80 nodes / ~220 beams / Pacejka tire / full powertrain)",
+  "duties": [
+    "勤労の義務"
+  ],
+  "governance": {
+    "raci": "responsible",
+    "classification": "public",
+    "complianceFrameworks": []
+  },
+  "guestAccess": true,
+  "guestCommands": [],
+  "kpi": [
+    "demo views",
+    "average drive time"
+  ],
+  "profile": {
+    "agentType": "autonomous",
+    "capabilities": [
+      "soft-body-physics",
+      "vehicle-dynamics",
+      "wgpu-rendering"
+    ],
+    "category": "demo",
+    "description": "Real-time soft-body car simulator running the kami-vehicle Rust crate (BeamNG-grade granularity) compiled to WASM, rendered with kami-render wgpu backend.",
+    "displayName": "Car Sim",
+    "isBot": true,
+    "operator": "etzhayyim.com"
+  },
+  "project": "car-sim",
+  "routes": [
+    { "host": "driver.etzhayyim.com", "paths": ["/"], "tls": true },
+    { "host": "c4r51m00.etzhayyim.com", "paths": ["/"], "tls": true }
+  ],
+  "runtimeType": "worker",
+  "uiType": "game",
+  "playUrl": "/",
+  "build": {
+    "role": "static-asset",
+    "wasmCrate": "40-engine/kami-engine/kami-app-car-sim",
+    "physicsCrate": "40-engine/kami-engine/kami-vehicle"
+  }
+}

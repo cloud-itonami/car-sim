@@ -1,0 +1,45 @@
+{
+  "name": "kotodama-c4r51m00",
+  "main": "svelte/.svelte-kit/cloudflare/_worker.js",
+  "compatibility_date": "2025-03-17",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "nodejs_als"
+  ],
+  "assets": {
+    "directory": "./svelte/.svelte-kit/cloudflare/client",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  },
+  "vars": {
+    "APP_ACTOR_HANDLE": "car-sim",
+    "APP_CAPABILITIES": "[\"soft-body-physics\",\"vehicle-dynamics\",\"wgpu-rendering\"]",
+    "APP_DESCRIPTION": "Real-time soft-body car simulator running the kami-vehicle Rust crate (BeamNG-grade granularity) compiled to WASM, rendered with kami-render wgpu backend.",
+    "APP_DISPLAY_NAME": "Car Sim",
+    "APP_EMBED_URL": "https://c4r51m00.etzhayyim.com/?embed=1",
+    "APP_FRAMEWORK": "sveltekit-edge-bff",
+    "APP_NANOID": "c4r51m00",
+    "APP_PERFORMER_TYPE": "service",
+    "APP_UI_TYPE": "game",
+    "AGENTGATEWAY_MCP_ROUTER_URL": "https://mcp.etzhayyim.com/xrpc/com.etzhayyim.mcp.message"
+  },
+  "rules": [
+    {
+      "type": "CompiledWasm",
+      "globs": [
+        "**/*.wasm"
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "c4r51m00.etzhayyim.com/*",
+      "zone_name": "etzhayyim.com"
+    },
+    {
+      "pattern": "driver.etzhayyim.com/*",
+      "zone_name": "etzhayyim.com"
+    }
+  ]
+}

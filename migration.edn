@@ -1,0 +1,1 @@
+{:schema "etzhayyim.migration/v1" :source {:repository "etzhayyim/root" :revision "f0f9f2aa67" :path "60-apps/etzhayyim-project-car-sim" :tree "e8c4e81af2e7a19fbc244bb644f61cac63cef1bf" :tracked-files 18 :bytes 280083} :destination {:repository "etzhayyim/com-etzhayyim-app-car-sim"} :identity {:allowed-additions ["README.edn" "migration.edn"]}}
