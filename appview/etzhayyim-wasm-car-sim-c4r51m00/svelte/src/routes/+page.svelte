@@ -4,11 +4,11 @@
   "project": "etzhayyim-project-car-sim",
   "name": "etzhayyim-wasm-car-sim-c4r51m00",
   "kind": "appview",
-  "routeCount": 0,
-  "routes": [],
-  "vars": [],
+  "routeCount": 2,
+  "routes": ["c4r51m00.etzhayyim.com/*","driver.etzhayyim.com/*"],
+  "vars": ["AGENTGATEWAY_MCP_ROUTER_URL","APP_ACTOR_HANDLE","APP_CAPABILITIES","APP_DESCRIPTION","APP_DISPLAY_NAME","APP_EMBED_URL","APP_FRAMEWORK","APP_NANOID","APP_PERFORMER_TYPE","APP_UI_TYPE"],
   "xrpc": true,
-  "relativePath": "60-apps/etzhayyim-project-car-sim/appview/etzhayyim-wasm-car-sim-c4r51m00/svelte/src/routes/+page.svelte"
+  "relativePath": "appview/etzhayyim-wasm-car-sim-c4r51m00/svelte/src/routes/+page.svelte"
 };
 </script>
 
