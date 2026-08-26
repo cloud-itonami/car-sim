@@ -1,3 +1,37 @@
+// PRESERVED, NOT PORTED, NOT WIRED IN, NOT MODIFIED BELOW THIS COMMENT BLOCK.
+//
+// This file is the SvelteKit XRPC BFF proxy that used to live at
+// `svelte/src/routes/xrpc/[...path]/+server.ts`. When `svelte/` was deleted
+// as part of migrating this appview's *frontend* from SvelteKit to
+// ClojureScript (reagent + re-frame, see ../cljs/), this backend/server
+// logic was out of scope for that migration (it is not a Svelte view, and
+// re-frame is a browser-only app that could not run a server-side proxy
+// anyway) — "leave backend TypeScript/XRPC code alone" per that migration's
+// instructions. Rather than let deleting `svelte/` silently destroy the
+// only copy of this proxy, it was relocated here byte-for-byte (everything
+// below this comment block is the original `+server.ts` body, unedited).
+//
+// Consequences of leaving it unedited:
+//   - It still `import`s from `@sveltejs/kit` and a SvelteKit-generated
+//     `./$types`. Neither resolves now that `svelte/` and its
+//     `node_modules`/`.svelte-kit` are gone, so this file does not compile
+//     or run standalone as-is.
+//   - It is NOT imported by `./app.ts` (the Worker's actual `fetch` entry —
+//     see that file's header). A request to `/xrpc/*` on the deployed
+//     Worker does nothing today; it falls through to `ASSETS.fetch` like
+//     any other unmatched path.
+//
+// docs/adr/0001-what-this-repo-can-and-cannot-run.md's open question 4
+// ("`svelte/` の scaffold ページを残すか… BFF だけ残して page を捨てる選択肢
+// がある") is resolved by this migration in exactly that direction: the
+// scaffold page is gone (replaced by the cljs one), and the BFF is kept —
+// but *wiring* it into a real Cloudflare Worker (re-implementing the
+// SvelteKit-specific pieces below in terms of plain `Request`/`Response`,
+// then mounting it from `./app.ts`'s fetch handler) is a separate,
+// not-yet-made decision, left for whoever picks this up next.
+//
+// --- original svelte/src/routes/xrpc/[...path]/+server.ts follows, verbatim ---
+
 import { json, type RequestEvent } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 

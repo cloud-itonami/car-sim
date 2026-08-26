@@ -63,11 +63,13 @@ demo、demo を含まない deploy 経路、解決しないホストを宣言す
    **決定 4 の結論に従属する** —— 配るものが変わるなら配線先も変わる。壊れた wasm を
    配線し直しても、出荷されるのは「読み込みに失敗するページ」であって改善ではない。
 
-6. **`src/app.ts` を「Worker の実装」として読まない。** `main` は SvelteKit の
-   `_worker.js` を指しており、`/health` も `/_app/meta` もビルド成果物に存在しない。
-   自身のコメントが `not_found_handling: "single-page-application"` と書いている
-   一方 `wrangler.jsonc` の実値は `"none"` で、**別の設定を説明している。**
-   このファイルは切り出し前の別経路の残骸として扱う。
+6. **`src/app.ts` を「Worker の実装」として読まない。**（2026-08-26 時点でこの決定
+   6 は過去のものになった —— 下記「2026-08-26 追記」を見ること。当時の記録として
+   残す:）`main` は SvelteKit の `_worker.js` を指しており、`/health` も
+   `/_app/meta` もビルド成果物に存在しない。自身のコメントが
+   `not_found_handling: "single-page-application"` と書いている一方
+   `wrangler.jsonc` の実値は `"none"` で、**別の設定を説明していた。**
+   このファイルは切り出し前の別経路の残骸として扱っていた。
 
 ## Consequences
 
@@ -93,8 +95,37 @@ demo、demo を含まない deploy 経路、解決しないホストを宣言す
 3. **`time_of_day` / `weather` の UI をどうするか。** 現状は wasm 側に受け手が
    無い。決定 4 の再実装で受けるか、UI から外すか。**放置すると「効いている
    ように見える操作」が残る。**
-4. **`svelte/` の scaffold ページを残すか。** XRPC BFF（`/xrpc/[...path]`）は
+4. ~~**`svelte/` の scaffold ページを残すか。** XRPC BFF（`/xrpc/[...path]`）は
    実装として成立しているが、転送先 `mcp.etzhayyim.com` が解決しない。BFF だけ
-   残して page を捨てる選択肢がある。
+   残して page を捨てる選択肢がある。~~ **解決 2026-08-26**: page はフロントエンド
+   移行（下記追記）で cljs 版に置き換えて残し、BFF は `src/xrpc-proxy.ts` へ
+   byte-for-byte 退避してコードは残した。ただし *配線*（Worker から呼べるように
+   書き直す）はしていない —— それは今も未解決のまま次の担当者へ引き継ぐ。
 5. **`kami-engine-audio.js`（9.8 KB）の出自。** `public/` にあるが wasm とは
    独立した手書きの WebAudio 実装に見える。CLJC 化の対象かどうか未判断。
+
+## 2026-08-26 追記 — フロントエンドを SvelteKit から ClojureScript に移行
+
+**このリポジトリの「配れないデモ」問題（決定 1〜5、上記）は今回の作業の対象外**
+——動かしたのは `appview/…/svelte/`（スキャフォールドページ + XRPC BFF）だけで、
+`public/` の壊れた wasm もその配線状況も未変更のまま。以下がこの日に変わった点:
+
+- `appview/…/svelte/` を削除し、`appview/…/cljs/`（reagent + re-frame +
+  `jp-go-dds`）に置き換えた。移植は `+page.svelte`（title/name/kind/routes/
+  vars/xrpc の自己記述パネル、~84 行）の全セクション・全条件分岐・全値を
+  保持している —— 単純化した簡易版ではない。
+- `wrangler.jsonc` を書き換えた: `main` を `svelte/.svelte-kit/cloudflare/_worker.js`
+  から `src/app.ts` へ、`assets.directory` を `./cljs/public` へ。この結果、
+  **決定 6 の前提（`src/app.ts` はエントリではない）は今日の実態ではなくなった**
+  —— `src/app.ts` は今 `wrangler.jsonc` の実エントリで、`/health` と
+  `/_app/meta` を処理してから `env.ASSETS.fetch` で `./cljs/public` に
+  委譲する。`src/app.ts` 冒頭のコメントの矛盾（`not_found_handling` の
+  値の食い違い）はこの移行で修正済み（コメントを実値 `"none"` に合わせた）。
+- XRPC BFF（旧 `svelte/src/routes/xrpc/[...path]/+server.ts`）は
+  `src/xrpc-proxy.ts` へ byte-for-byte 退避。`./$types` 等 SvelteKit 依存の
+  import が残ったままなので単体では動かず、`src/app.ts` からも呼ばれていない
+  —— 削除も配線もしていない、意図的な中間状態。open question 4 を参照。
+- `public/` の wasm・HUD・operator-quickstart §1/§3/§4 の実測はすべて無変更。
+  **この移行を「デモが直った」という意味に読まない。**
+
+ビルド実測・merge 先 commit は同日の該当 PR/commit を参照。

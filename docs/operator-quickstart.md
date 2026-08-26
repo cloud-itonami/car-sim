@@ -1,8 +1,11 @@
 # operator quickstart — car-sim
 
 **この文書の手順はすべて実際に踏んである。** 出力は実測値であって期待値ではない。
-測ったのは 2026-08-12、macOS 26.3.1（darwin 25.3.0 / arm64）、Node v26.3.0、
-Google Chrome 151.0.7922.76、playwright 1.59.0。
+§1/§3/§4 を測ったのは 2026-08-12、macOS 26.3.1（darwin 25.3.0 / arm64）、
+Node v26.3.0、Google Chrome 151.0.7922.76、playwright 1.59.0。**§2 は
+2026-08-26 に、フロントエンドを SvelteKit から ClojureScript（reagent +
+re-frame + jp-go-dds）へ移行した際に測り直した**（同じ Node バージョン系列、
+`npm`/`shadow-cljs` の版は本文中に記載）。
 
 **結論を先に書く: 今日このリポジトリからデモを立ち上げることはできない。**
 以下は「どこまで行けて、どこで止まるか」を再現する手順である。
@@ -122,57 +125,67 @@ PY
 
 ---
 
-## 2. Worker をビルドしてみる —— 通る。ただし成果物にデモが入らない
+## 2. フロントエンドをビルドしてみる —— 通る。ただしこれもデモではない
+
+**2026-08-26 追記: この節は元 SvelteKit 手順を、フロントエンド移行後の cljs
+手順に書き換えたもの。** `appview/…/svelte/` は削除済み、
+`appview/…/cljs/`（reagent + re-frame + jp-go-dds）に置き換わっている。
+以前の SvelteKit 実測（92 packages / `✓ built in 7.55s` / 成果物 17 ファイル /
+`public/` 未配線）は歴史的事実として ADR 0001 に残るが、**このディレクトリでは
+再現できない**（`svelte/` 自体が無い）。
 
 ```bash
-cd appview/etzhayyim-wasm-car-sim-c4r51m00/svelte
+cd appview/etzhayyim-wasm-car-sim-c4r51m00/cljs
 npm install
 ```
 
-**実測**: `added 92 packages in 14s`。`npm warn allow-scripts` が 3 件
-（esbuild ×2 / workerd）出るが承認は不要。`workspace:` プロトコルのような
-解決不能な依存は無い（同世代の `cloud-itonami/cad` と違う点）。
+**実測**（2026-08-26、この移行時）: `added 129 packages, and audited 130
+packages in 21s`。`6 low severity vulnerabilities`（`npm audit fix --force`
+待ち、未対応）。`workspace:` のような解決不能な依存は無い。
 
 ビルドは **resource-guard 経由で**（superproject の規則。同時 build を 1 本に絞る）:
 
 ```bash
-node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npm run build
+node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow-cljs compile app
 ```
 
-**実測**: `✓ built in 7.55s` → `Using @sveltejs/adapter-cloudflare ✔ done`。
+**実測**: `[:app] Build completed. (111 files, 110 compiled, 0 warnings, 46.92s)`。
+`public/js/` に出力される。
 
-配られる中身を数える:
+テストビルド + 実行:
 
 ```bash
-find .svelte-kit/cloudflare/client -type f | wc -l     # → 17
-find .svelte-kit/cloudflare -iname '*car_sim*' -o -iname '*.wasm'   # → 0 件
-grep -c health .svelte-kit/cloudflare/_worker.js       # → 0
-grep -c _app/meta .svelte-kit/cloudflare/_worker.js    # → 0
+node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow-cljs compile test
+node out/tests.js
 ```
 
-**17 ファイルはすべて `_app/…` のチャンクと `_headers` / `.assetsignore`。**
-デモの `index.html` も glue も wasm も入っていない —— `wrangler.jsonc` の
-`assets.directory` はこのディレクトリを指しているので、**今 deploy すると
-切り出し時のスキャフォールドページが出荷される。**
+**実測**: `car-sim.app-test` の 3 deftest が緑（default-db の値、routeCount と
+routes 件数の一致、re-frame の sub/event 往復）。resource-guard は他 repo の
+並行ビルドと 1 本のロックを共有するため `exit 2`（lock held）が複数回出るのが
+通常 —— このリポジトリの build 自体の失敗ではない。
 
-原因は設定の 1 行ではなく、**`public/` を参照するビルド手順が存在しないこと**:
-`svelte.config.js` に `files.assets` の指定が無く、SvelteKit の既定である
-`svelte/static/` はこのリポジトリに存在しない。
+このビルドが配るのは(旧 `svelte/` 同様)**切り出し時のスキャフォールド
+ページの cljs 版**であって、`public/` の soft-body カーシミュレータ demo では
+ない。`wrangler.jsonc` の `assets.directory` は今 `./cljs/public` を指す
+（移行前は `svelte/.svelte-kit/cloudflare/client`）。
 
-`src/app.ts`（`/health` と `/_app/meta` を実装している Worker）は
-**エントリではない** —— `wrangler.jsonc` の `main` は SvelteKit の `_worker.js`。
-上の `grep` が 0 を返すのはそのためである。`src/app.ts` 冒頭のコメントは
-`not_found_handling: "single-page-application"` と書いているが、
-`wrangler.jsonc` の実際の値は `"none"`。**この 2 つは別の設定を説明している。**
+`src/app.ts`（`/health` と `/_app/meta` を実装している Worker）は、この移行で
+`wrangler.jsonc` の `main` として**実際にエントリになった**（移行前は SvelteKit の
+`_worker.js` がエントリで、`src/app.ts` は死んだコードだった —— 当時の実測は
+ADR 0001 に残す）。同ファイル冒頭のコメントの `not_found_handling` 記述も
+実値 `"none"` に合わせて修正済み。
 
-### 後片付け（`.gitignore` が無いので必ずやる）
+### 後片付け（`.gitignore` が無いので必ずやる。ただし `cljs/.gitignore` は追加済み）
 
 ```bash
-rm -rf node_modules .svelte-kit package-lock.json
-git status --porcelain     # ← 空になること
+cd appview/etzhayyim-wasm-car-sim-c4r51m00/cljs
+rm -rf node_modules .shadow-cljs .cpcache public/js out
+cd ../../..
+git status --porcelain     # ← 空になること（cljs/.gitignore がこれらを既に除外）
 ```
 
-このリポジトリには `.gitignore` が無い。**掃除しないとツリーが汚れたままになる。**
+リポジトリルート自体には引き続き `.gitignore` が無いが、`cljs/.gitignore` を
+この移行で追加したので、cljs 側のビルド生成物は掃除すれば tree に残らない。
 
 ---
 
@@ -244,8 +257,14 @@ done
 
 - **wasm が通る（`validate: true`）** — 誰かが差し替えた。この文書のほうが古い。
   §1 の実測値と `git log -- appview/**/public/*.wasm` を見比べること。
-- **ビルド成果物が 17 ファイルでない** — `public/` を配線した変更が入った可能性。
-  `svelte.config.js` の `files.assets` と `wrangler.jsonc` の `assets.directory` を確認。
+- **`cljs/public/js/` にビルド成果物が無い** — `npm install` を `cljs/` 側で
+  やっていない、または shadow-cljs の `:app` build が失敗している可能性。
+  §2 の resource-guard 実測（`111 files, 110 compiled, 0 warnings`）と比較。
+- **`wrangler.jsonc` の `assets.directory` が `./cljs/public` を指していない** —
+  `public/` を配線した変更（decision 4 のデモ復活作業）が入った可能性。
 - **`driver.etzhayyim.com` が解決する** — deploy されたということ。§3 は無効になる。
-- **`npm install` が `EUNSUPPORTEDPROTOCOL` で落ちる** — `svelte/` ではなく別の
-  appview に居る。ここの `package.json` に `workspace:` 依存は無い。
+- **`svelte/` というディレクトリが復活している** — 2026-08-26 のフロントエンド
+  移行が revert された。§2 の cljs 手順ではなく、この文書の旧版
+  （git 履歴、この日付より前のコミット）を見ること。
+- **`npm install` が `EUNSUPPORTEDPROTOCOL` で落ちる** — `appview/etzhayyim-wasm-car-sim-c4r51m00/cljs/`
+  ではなく別の appview に居る。ここの `package.json` に `workspace:` 依存は無い。

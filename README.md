@@ -2,8 +2,9 @@
 
 **`cloud-itonami/car-sim` は soft-body カーシミュレータの *配信面* であって、
 シミュレータの実装ではない。** 中身は `etzhayyim/root` から切り出された
-Cloudflare appview 一式（SvelteKit + 事前ビルド済み wasm）で、物理も描画も
-上流の別リポジトリが所有する。
+Cloudflare appview 一式（元 SvelteKit、2026-08-26 に ClojureScript
+（reagent + re-frame + jp-go-dds）へ移行 — 下記参照、+ 事前ビルド済み wasm）で、
+物理も描画も上流の別リポジトリが所有する。
 
 そして **2026-08-12 現在、この配信面は動かない。** チェックインされている
 `kami_app_car_sim_bg.wasm` をブラウザが受理しない（`WebAssembly.validate` が
@@ -17,19 +18,31 @@ Cloudflare appview 一式（SvelteKit + 事前ビルド済み wasm）で、物�
 
 ## 何が入っているか — 面は 2 つあり、**どちらも今日はデモを配れない**
 
+**2026-08-26 追記: フロントエンドを SvelteKit から ClojureScript に移行した。**
+`appview/…/svelte/` は削除し、`appview/…/cljs/`（reagent + re-frame + jp-go-dds）に
+置き換えた。中身は変わらず「切り出し時のスキャフォールドページ」で、これは
+デモ（下表 1 行目）そのものではない。以下の表と本節の記述はこの移行後の状態。
+
 | 面 | 中身 | 実測した状態 |
 |---|---|---|
-| **`appview/…/public/`** | 本物のデモ。`index.html`（HUD・キー操作・エンジン音）+ wasm-bindgen の glue + `kami_app_car_sim_bg.wasm`（182,192 B） | **静的配信はできるが、wasm がブラウザに拒否される**。HUD は `—` のまま、canvas は 300×150（既定値）から動かない |
-| **`appview/…/svelte/`** | Cloudflare Worker（SvelteKit + `adapter-cloudflare`）と XRPC BFF | **ビルドは通る**（`npm install` 92 packages / `npm run build` ✔）。ただし**成果物にデモが 1 バイトも入らない** |
+| **`appview/…/public/`** | 本物のデモ。`index.html`（HUD・キー操作・エンジン音）+ wasm-bindgen の glue + `kami_app_car_sim_bg.wasm`（182,192 B） | **静的配信はできるが、wasm がブラウザに拒否される**。HUD は `—` のまま、canvas は 300×150（既定値）から動かない。**この移行では未変更** |
+| **`appview/…/cljs/`** | reagent + re-frame + jp-go-dds のスキャフォールド情報ページ（旧 `svelte/src/routes/+page.svelte` の忠実な移植） | **ビルドは通る**（下記「ビルドしてみる」参照）。ただし旧 `svelte/` 同様、**成果物にデモが 1 バイトも入らない**（そもそも同じスキャフォールドの移植であって、デモを配る面ではない） |
 
-`wrangler.jsonc` が配るのは `svelte/.svelte-kit/cloudflare/client`（実測 17 ファイル、
-すべて `_app/…` のチャンク）で、**`public/` はどのビルド手順からも参照されていない**
-（`svelte.config.js` に `files.assets` の指定が無く、`svelte/static/` も存在しない）。
-つまり今 `wrangler deploy` すると、デモではなく**切り出し時のスキャフォールド
-ページ**（"Cloudflare appview / Car Sim C4r51m00 / Routes 0"）が出荷される。
+`wrangler.jsonc` はこの移行で `main` を `src/app.ts` に、`assets.directory` を
+`./cljs/public` に向け直した。**`src/app.ts` は今 `wrangler.jsonc` の実エントリ**
+（`/health` と `/_app/meta` を処理し、それ以外は `env.ASSETS.fetch` で
+`./cljs/public` のスキャフォールドページへ委譲する static-asset Worker）。
+`public/`（本物のデモ）は依然どのビルド/デプロイ手順からも参照されていない
+— デモの配線とリバイバルは decision 4（下記）の別スコープのまま。
 
-`src/app.ts` も Worker のエントリではない（`main` は SvelteKit の `_worker.js`）。
-そこに書かれた `/health` と `/_app/meta` はビルド成果物に存在しない（`grep` で 0 件）。
+旧 `svelte/` が持っていた XRPC BFF プロキシ（`/xrpc/[...path]`、
+`AGENTGATEWAY_MCP_ROUTER_URL` へ転送）は、SvelteKit 固有のバックエンドロジックで
+あり今回のフロントエンド移行の対象外だったため、**削除せず**
+`appview/etzhayyim-wasm-car-sim-c4r51m00/src/xrpc-proxy.ts` へ**そのまま**
+（byte-for-byte）退避した。`./$types` 等 SvelteKit 依存の import が残っており
+このままでは単体で動かず、`src/app.ts` からも呼ばれていない
+（inert な参照実装）。配線するかどうかは ADR 0001 の open question 4 として
+残っている。
 
 ## wasm が壊れている — GPU の問題ではない
 
