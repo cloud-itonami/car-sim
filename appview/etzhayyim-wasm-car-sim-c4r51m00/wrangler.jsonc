@@ -1,13 +1,13 @@
 {
   "name": "kotodama-c4r51m00",
-  "main": "svelte/.svelte-kit/cloudflare/_worker.js",
+  "main": "src/app.ts",
   "compatibility_date": "2025-03-17",
   "compatibility_flags": [
     "nodejs_compat",
     "nodejs_als"
   ],
   "assets": {
-    "directory": "./svelte/.svelte-kit/cloudflare/client",
+    "directory": "./cljs/public",
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none"
@@ -18,7 +18,7 @@
     "APP_DESCRIPTION": "Real-time soft-body car simulator running the kami-vehicle Rust crate (BeamNG-grade granularity) compiled to WASM, rendered with kami-render wgpu backend.",
     "APP_DISPLAY_NAME": "Car Sim",
     "APP_EMBED_URL": "https://c4r51m00.etzhayyim.com/?embed=1",
-    "APP_FRAMEWORK": "sveltekit-edge-bff",
+    "APP_FRAMEWORK": "reagent-re-frame-static-asset",
     "APP_NANOID": "c4r51m00",
     "APP_PERFORMER_TYPE": "service",
     "APP_UI_TYPE": "game",
