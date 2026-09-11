@@ -75,7 +75,7 @@
                "APP_DESCRIPTION" "APP_DISPLAY_NAME" "APP_EMBED_URL" "APP_FRAMEWORK"
                "APP_NANOID" "APP_PERFORMER_TYPE" "APP_UI_TYPE"]
    :page/xrpc? true
-   :page/relative-path "appview/etzhayyim-wasm-car-sim-c4r51m00/cljs/src/car_sim/app.cljs"})
+   :page/relative-path "appview/etzhayyim-wasm-car-sim-c4r51m00/cljs/src/car_sim/app.cljk"})
 
 (rf/reg-event-db
  :initialize-db
