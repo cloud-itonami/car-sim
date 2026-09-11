@@ -146,7 +146,7 @@ packages in 21s`。`6 low severity vulnerabilities`（`npm audit fix --force`
 ビルドは **resource-guard 経由で**（superproject の規則。同時 build を 1 本に絞る）:
 
 ```bash
-node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow-cljs compile app
+node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- amu compile --target wasm32-browser app
 ```
 
 **実測**: `[:app] Build completed. (111 files, 110 compiled, 0 warnings, 46.92s)`。
@@ -155,7 +155,7 @@ node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow
 テストビルド + 実行:
 
 ```bash
-node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow-cljs compile test
+node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- amu compile --target wasm32-browser test
 node out/tests.js
 ```
 
